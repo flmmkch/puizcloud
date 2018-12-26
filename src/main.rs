@@ -53,15 +53,16 @@ fn directory_listing(given_path: &path::Path, actual_path: &path::Path) -> Resul
         if let Ok(entry) = entry {
             let entry_path = entry.path();
             if let Some(entry_file_name) = entry_path.file_name() {
+                let entry_given_path = given_path.join(entry_file_name);
                 if entry_path.is_dir() {
                     subfolders.push(EntrySubfolder {
-                        given_path: given_path.join(entry_file_name),
+                        given_path: entry_given_path,
                     })
                 }
                 else {
                     if entry_path.is_file() {
                         files.push(EntryFile {
-                            file_path: entry_path,
+                            file_path: entry_given_path,
                             file_size: entry.metadata().map(|metadata| metadata.len()).unwrap_or(0)
                         });
                     }
