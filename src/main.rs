@@ -1,6 +1,6 @@
 extern crate actix_web;
 use actix_web::{server, App, Responder, HttpResponse, fs::NamedFile};
-use std::path;
+use std::{env, path};
 
 struct EntrySubfolder {
     subfolder_path: path::PathBuf,
@@ -146,7 +146,6 @@ fn file_not_found(file_path: &path::Path) -> actix_web::HttpResponse {
 }
 
 fn do_browse(req: &actix_web::HttpRequest) -> WebResult {
-    use std::env;
     let given_path = path::PathBuf::from(req.match_info().get_decoded("tail").unwrap_or("".into()));
     let current_dir = match env::current_dir() {
         Ok(current_dir) => current_dir,
@@ -185,6 +184,11 @@ fn do_browse(req: &actix_web::HttpRequest) -> WebResult {
 }
 
 fn main() {
+    let ip = "127.0.0.1";
+    let port = 8080;
+    println!("Listening on {}:{}", ip, port);
+    println!("Serving folder {}", env::current_dir().unwrap().display());
+    println!("To access the file server: http://{}:{}/browse/", ip, port);
     server::new(
         || App::new()
             .resource("/browse/{tail:.*}", |r| {
@@ -192,6 +196,6 @@ fn main() {
                 r.get().f(do_browse);
             })
         )
-        .bind("127.0.0.1:8080").unwrap()
+        .bind(format!("{}:{}", ip, port)).unwrap()
         .run();
 }
