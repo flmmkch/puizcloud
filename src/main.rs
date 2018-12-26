@@ -41,7 +41,9 @@ fn directory_listing(dir_path: &path::Path) -> Result<(Vec<EntrySubfolder>, Vec<
 
 const PAGE_TITLE: &'static str = "Puizcloud";
 
-fn do_browse_directory(req: &actix_web::HttpRequest, given_path: &path::Path) -> std::result::Result<actix_web::dev::AsyncResult<actix_web::HttpResponse>, actix_web::Error> {
+type WebResult = std::result::Result<actix_web::dev::AsyncResult<actix_web::HttpResponse>, actix_web::Error>;
+
+fn do_browse_directory(req: &actix_web::HttpRequest, given_path: &path::Path) -> WebResult {
     let (subfolders, files) = directory_listing(&given_path)?;
     let current_path: String = 
         given_path.components()
@@ -137,8 +139,14 @@ fn do_browse_directory(req: &actix_web::HttpRequest, given_path: &path::Path) ->
         .respond_to(&req)
 }
 
-fn do_browse(req: &actix_web::HttpRequest) -> std::result::Result<actix_web::dev::AsyncResult<actix_web::HttpResponse>, actix_web::Error> {
-    let given_path = path::PathBuf::from(&req.match_info().query::<String>("tail")?);
+fn file_not_found(file_path: &path::Path) -> actix_web::HttpResponse {
+    HttpResponse::NotFound()
+        .content_type("text/plain")
+        .body(format!("HTTP Error 404 Not Found: {}", file_path.display()))
+}
+
+fn do_browse(req: &actix_web::HttpRequest) -> WebResult {
+    let given_path = path::PathBuf::from(req.match_info().get_decoded("tail").unwrap_or("".into()));
     if given_path.is_relative() {
         if given_path.is_dir() {
             do_browse_directory(req, &given_path)
@@ -151,16 +159,13 @@ fn do_browse(req: &actix_web::HttpRequest) -> std::result::Result<actix_web::dev
                     .respond_to(&req)
             }
             else {
-                HttpResponse::NotFound()
-                    .finish()
+                file_not_found(&given_path)
                     .respond_to(&req)
             }
         }
     }
     else {
-        HttpResponse::Forbidden()
-            .content_type("text/plain")
-            .body("HTTP Error 404: Not Found")
+        file_not_found(&given_path)
             .respond_to(&req)
     }
 }
