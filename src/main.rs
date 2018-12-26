@@ -80,33 +80,36 @@ type WebResult = std::result::Result<actix_web::dev::AsyncResult<actix_web::Http
 
 fn do_browse_directory(req: &HttpRequest, given_path: &path::Path, actual_path: &path::Path) -> WebResult {
     let (subfolders, files) = directory_listing(given_path, actual_path)?;
-    let current_path: String = 
-        given_path
-            .components()
-            .filter_map(|p| 
-                if let path::Component::Normal(c) = p {
-                    Some(c)
-                }
-                else {
-                    None
-                }
-            )
-            .fold((format!(r#"<a href="{1}">{0}</a>"#, "/", req.url_for("browse", &[""])?), path::PathBuf::new(), " "), |(r, p, mut sep), file_name| {
-                let new_path = p.join(file_name);
-                let result = if let Ok(url_link) = req.url_for("browse", &[new_path.to_string_lossy()]) {
-                    let result =  r + sep + &format!(r#"<a href="{1}">{0}</a>"#,
-                        file_name.to_string_lossy(),
-                        url_link,
-                        );
-                    sep = " / ";
-                    result
-                }
-                else {
-                    r
-                };
-                (result, new_path, sep)
-            })
-            .0;
+    let current_path: String = given_path
+        .ancestors()
+        .filter_map(|partial_path| {
+            if let Some(file_name) = partial_path.file_name() {
+                req.url_for("browse", &[partial_path.to_string_lossy()])
+                    .ok()
+                    .map(|path_url| (file_name.to_string_lossy(), path_url))
+            }
+            else {
+                None
+            }
+        })
+        .chain(
+            req.url_for("browse", &[""])
+                .ok()
+                .map(|path_url| ("/".into(),  path_url))
+        )
+        .collect::<Vec<_>>()
+        .into_iter()
+        .rev()
+        .fold((String::new(), " "), |(r, mut sep), (file_name, url_link)| {
+            let new = format!(r#"<a href="{1}">{0}</a>{2}"#,
+                file_name,
+                url_link,
+                sep,
+                );
+            sep = " / ";
+            (r + &new, sep)
+        })
+        .0;
     let files_table = {
         let mut files_table = String::new();
         // header
