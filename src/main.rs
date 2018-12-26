@@ -81,7 +81,8 @@ type WebResult = std::result::Result<actix_web::dev::AsyncResult<actix_web::Http
 fn do_browse_directory(req: &HttpRequest, given_path: &path::Path, actual_path: &path::Path) -> WebResult {
     let (subfolders, files) = directory_listing(given_path, actual_path)?;
     let current_path: String = 
-        given_path.components()
+        given_path
+            .components()
             .filter_map(|p| 
                 if let path::Component::Normal(c) = p {
                     Some(c)
@@ -90,7 +91,7 @@ fn do_browse_directory(req: &HttpRequest, given_path: &path::Path, actual_path: 
                     None
                 }
             )
-            .fold((String::new(), path::PathBuf::new(), ""), |(r, p, mut sep), file_name| {
+            .fold((format!(r#"<a href="{1}">{0}</a>"#, "/", req.url_for("browse", &[""])?), path::PathBuf::new(), " "), |(r, p, mut sep), file_name| {
                 let new_path = p.join(file_name);
                 let result = if let Ok(url_link) = req.url_for("browse", &[new_path.to_string_lossy()]) {
                     let result =  r + sep + &format!(r#"<a href="{1}">{0}</a>"#,
