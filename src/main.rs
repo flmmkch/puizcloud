@@ -216,11 +216,18 @@ fn do_browse(req: &HttpRequest) -> WebResult {
 fn read_config() -> Config {
     use std::fs;
     use toml;
-    let configuration_toml_file = path::Path::new("./puizcloud.toml");
-    fs::read(configuration_toml_file)
-        .ok()
-        .and_then(|v| toml::from_slice::<Config>(&v).ok())
-        .unwrap_or_else(|| Config::default())
+    let configuration_toml_file = path::Path::new("puizcloud.toml");
+    let configuration_toml = match fs::read(&configuration_toml_file) {
+        Ok(f) => {
+            toml::from_slice::<Config>(&f)
+                .map_err(|e| format!("{}", e))
+        },
+        Err(e) => Err(format!("{}", e)),
+    };
+    match configuration_toml {
+        Ok(config) => config,
+        Err(e) => panic!("{} failed to be read: {}", configuration_toml_file.display(), e),
+    }
 }
 
 fn main() {
