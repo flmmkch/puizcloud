@@ -43,8 +43,8 @@ const PAGE_TITLE: &'static str = "Puizcloud";
 
 type WebResult = std::result::Result<actix_web::dev::AsyncResult<actix_web::HttpResponse>, actix_web::Error>;
 
-fn do_browse_directory(req: &actix_web::HttpRequest, given_path: &path::Path) -> WebResult {
-    let (subfolders, files) = directory_listing(&given_path)?;
+fn do_browse_directory(req: &actix_web::HttpRequest, given_path: &path::Path, actual_path: &path::Path) -> WebResult {
+    let (subfolders, files) = directory_listing(&actual_path)?;
     let current_path: String = 
         given_path.components()
             .filter_map(|p| 
@@ -146,10 +146,18 @@ fn file_not_found(file_path: &path::Path) -> actix_web::HttpResponse {
 }
 
 fn do_browse(req: &actix_web::HttpRequest) -> WebResult {
+    use std::env;
     let given_path = path::PathBuf::from(req.match_info().get_decoded("tail").unwrap_or("".into()));
+    let current_dir = match env::current_dir() {
+        Ok(current_dir) => current_dir,
+        Err(_) => {
+            return file_not_found(path::Path::new("."))
+                .respond_to(&req);
+        },
+    };
     if given_path.is_relative() {
         if given_path.is_dir() {
-            do_browse_directory(req, &given_path)
+            do_browse_directory(req, &given_path, &current_dir.join(&given_path))
         }
         else {
             if given_path.is_file() {
@@ -159,8 +167,14 @@ fn do_browse(req: &actix_web::HttpRequest) -> WebResult {
                     .respond_to(&req)
             }
             else {
-                file_not_found(&given_path)
-                    .respond_to(&req)
+                // empty path: default folder
+                if given_path.components().next().is_none() {
+                    do_browse_directory(req, &path::Path::new(""), &current_dir)
+                }
+                else {
+                    file_not_found(&given_path)
+                        .respond_to(&req)
+                }
             }
         }
     }
