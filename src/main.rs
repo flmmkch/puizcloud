@@ -15,12 +15,12 @@ struct PuizcloudState {
 
 impl PuizcloudState {
     pub fn new(config: Config) -> PuizcloudState {
-        let full_data_path = if config.data_path().is_absolute() {
-            config.data_path().to_owned()
-        }
-        else {
+        let full_data_path = if config.data_path().is_relative() {
             env::current_dir().expect("Unable to determine current directory")
                 .join(config.data_path())
+        }
+        else {
+            config.data_path().to_owned()
         };
         PuizcloudState {
             config,
@@ -242,7 +242,12 @@ fn main() {
     let port = puizcloud_state.config().port.clone();
     println!("Listening on {}:{}", &ip, &port);
     println!("To access the file server: http://{}:{}/browse/", &ip, &port);
-    println!("Serving folder {}", puizcloud_state.full_data_path().display());
+    if puizcloud_state.full_data_path().is_dir() {
+        println!("Serving folder {}", puizcloud_state.full_data_path().display());
+    }
+    else {
+        panic!("{} is not a directory", puizcloud_state.full_data_path().display());
+    }
     server::new(
         move || App::with_state(puizcloud_state.clone())
             .resource("/browse/{tail:.*}", |r| {
