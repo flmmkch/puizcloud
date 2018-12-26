@@ -5,10 +5,9 @@ The Web interface does not require Javascript to be used.
 
 ## Usage ##
 
-Download the repository and use
-`cargo build --release`
-to compile, then launch the executable binary in the
-`target/release/puizcloud` subfolder from the folder you want to serve.
+* Clone the repository
+* Configure your server by editing and reviewing `puizcloud.toml`
+* `cargo run --release`
 
 ## License
 

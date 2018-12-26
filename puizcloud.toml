@@ -1,3 +1,5 @@
+# Address and port to listen to
 ip = "127.0.0.1"
 port = 8080
+# Path to the folder containing the data you want served
 data = "data/"
