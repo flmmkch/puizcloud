@@ -1,5 +1,5 @@
-use std::path::Path;
 use std::default::Default;
+use std::path::Path;
 
 #[derive(Serialize, Deserialize, PartialEq, Eq, Debug, Clone)]
 pub struct Config {
@@ -33,7 +33,8 @@ mod tests {
     #[test]
     fn test_default_data() {
         let default_config_toml = include_str!("../puizcloud.toml");
-        let config_from_toml: Config = toml::from_str(&default_config_toml).expect("Failed to parse TOML");
+        let config_from_toml: Config =
+            toml::from_str(&default_config_toml).expect("Failed to parse TOML");
         let default_config = Config::default();
         assert_eq!(&default_config, &config_from_toml);
     }

@@ -10,10 +10,10 @@ pub struct PuizcloudState {
 impl PuizcloudState {
     pub fn new(config: Config) -> PuizcloudState {
         let full_data_path = if config.data_path().is_relative() {
-            env::current_dir().expect("Unable to determine current directory")
+            env::current_dir()
+                .expect("Unable to determine current directory")
                 .join(config.data_path())
-        }
-        else {
+        } else {
             config.data_path().to_owned()
         };
         PuizcloudState {

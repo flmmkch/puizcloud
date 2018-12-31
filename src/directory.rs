@@ -1,27 +1,26 @@
-use actix_web::{Responder, HttpResponse};
+use super::{HttpRequest, WebResult, PAGE_TITLE};
+use actix_web::{HttpResponse, Responder};
 use std::path;
-use super::{HttpRequest, PAGE_TITLE, WebResult};
 
 fn sanitize_html_string<'a>(string: &'a str) -> std::borrow::Cow<'a, str> {
     [
-            ('&', "&amp;"),
-            ('"', "&quot;"),
-            ('\'', "&#x27;"),
-            ('<', "&lt;"),
-            ('>', "&gt;"),
+        ('&', "&amp;"),
+        ('"', "&quot;"),
+        ('\'', "&#x27;"),
+        ('<', "&lt;"),
+        ('>', "&gt;"),
     ]
-        .iter()
-        .fold(std::borrow::Cow::Borrowed(string),
-            |s, &(character, entity)| {
-                if s.contains(character) {
-                    s.replace(character, entity)
-                        .into()
-                }
-                else {
-                    s
-                }
+    .iter()
+    .fold(
+        std::borrow::Cow::Borrowed(string),
+        |s, &(character, entity)| {
+            if s.contains(character) {
+                s.replace(character, entity).into()
+            } else {
+                s
             }
-        )
+        },
+    )
 }
 
 struct EntrySubfolder {
@@ -33,7 +32,10 @@ struct EntryFile {
     file_size: u64,
 }
 
-fn directory_listing(given_path: &path::Path, actual_path: &path::Path) -> Result<(Vec<EntrySubfolder>, Vec<EntryFile>), actix_web::error::Error> {
+fn directory_listing(
+    given_path: &path::Path,
+    actual_path: &path::Path,
+) -> Result<(Vec<EntrySubfolder>, Vec<EntryFile>), actix_web::error::Error> {
     let mut subfolders = Vec::new();
     let mut files = Vec::new();
     for entry in actual_path.read_dir()? {
@@ -45,12 +47,11 @@ fn directory_listing(given_path: &path::Path, actual_path: &path::Path) -> Resul
                     subfolders.push(EntrySubfolder {
                         given_path: entry_given_path,
                     })
-                }
-                else {
+                } else {
                     if entry_path.is_file() {
                         files.push(EntryFile {
                             file_path: entry_given_path,
-                            file_size: entry.metadata().map(|metadata| metadata.len()).unwrap_or(0)
+                            file_size: entry.metadata().map(|metadata| metadata.len()).unwrap_or(0),
                         });
                     }
                 }
@@ -62,7 +63,11 @@ fn directory_listing(given_path: &path::Path, actual_path: &path::Path) -> Resul
     Ok((subfolders, files))
 }
 
-pub fn do_browse_directory(req: &HttpRequest, given_path: &path::Path, actual_path: &path::Path) -> WebResult {
+pub fn do_browse_directory(
+    req: &HttpRequest,
+    given_path: &path::Path,
+    actual_path: &path::Path,
+) -> WebResult {
     let (subfolders, files) = directory_listing(given_path, actual_path)?;
     let current_path: String = given_path
         .ancestors()
@@ -71,28 +76,31 @@ pub fn do_browse_directory(req: &HttpRequest, given_path: &path::Path, actual_pa
                 req.url_for("browse", &[partial_path.to_string_lossy()])
                     .ok()
                     .map(|path_url| (file_name.to_string_lossy(), path_url))
-            }
-            else {
+            } else {
                 None
             }
         })
         .chain(
             req.url_for("browse", &[""])
                 .ok()
-                .map(|path_url| ("/".into(),  path_url))
+                .map(|path_url| ("/".into(), path_url)),
         )
         .collect::<Vec<_>>()
         .into_iter()
         .rev()
-        .fold((String::new(), " "), |(r, mut sep), (file_name, url_link)| {
-            let new = format!(r#"<a href="{1}">{0}</a>{2}"#,
-                sanitize_html_string(&file_name),
-                url_link,
-                sep,
+        .fold(
+            (String::new(), " "),
+            |(r, mut sep), (file_name, url_link)| {
+                let new = format!(
+                    r#"<a href="{1}">{0}</a>{2}"#,
+                    sanitize_html_string(&file_name),
+                    url_link,
+                    sep,
                 );
-            sep = " / ";
-            (r + &new, sep)
-        })
+                sep = " / ";
+                (r + &new, sep)
+            },
+        )
         .0;
     let files_table = {
         let mut files_table = String::new();
@@ -106,44 +114,46 @@ pub fn do_browse_directory(req: &HttpRequest, given_path: &path::Path, actual_pa
                 1 => "1 file".to_owned(),
                 n => format!("{} files", n),
             };
-            files_table.push_str(
-                &format!(r#"<tr class="folder_listing_header"><td>{0}<br />{1}</td><td></td></tr>
+            files_table.push_str(&format!(
+                r#"<tr class="folder_listing_header"><td>{0}<br />{1}</td><td></td></tr>
                 "#,
-                folders_line,
-                files_line,
-                )
-            )
+                folders_line, files_line,
+            ))
         }
         // subfolders
         for subfolder in subfolders {
             let path: &path::Path = &subfolder.given_path;
             let file_name_opt = path.file_name().map(|n| n.to_string_lossy());
-            files_table.push_str(
-                &format!(r#"<tr><td><a href="{1}">{0}</a></td><td>--</td></tr>
+            files_table.push_str(&format!(
+                r#"<tr><td><a href="{1}">{0}</a></td><td>--</td></tr>
                 "#,
-                    file_name_opt.as_ref().map(|s| sanitize_html_string(&s)).unwrap_or("".into()),
-                    req.url_for("browse", &[path.to_string_lossy()])?,
-                    )
-            );
+                file_name_opt
+                    .as_ref()
+                    .map(|s| sanitize_html_string(&s))
+                    .unwrap_or("".into()),
+                req.url_for("browse", &[path.to_string_lossy()])?,
+            ));
         }
         // files
         for file in files {
             let path: &path::Path = &file.file_path;
             let file_name_opt = path.file_name().map(|n| n.to_string_lossy());
-            files_table.push_str(
-                &format!(r#"<tr><td><a href="{1}">{0}</a></td><td>{2}</td></tr>
+            files_table.push_str(&format!(
+                r#"<tr><td><a href="{1}">{0}</a></td><td>{2}</td></tr>
                 "#,
-                    file_name_opt.as_ref().map(|s| sanitize_html_string(&s)).unwrap_or("".into()),
-                    req.url_for("browse", &[path.to_string_lossy()])?,
-                    file.file_size,
-                    )
-            );
+                file_name_opt
+                    .as_ref()
+                    .map(|s| sanitize_html_string(&s))
+                    .unwrap_or("".into()),
+                req.url_for("browse", &[path.to_string_lossy()])?,
+                file.file_size,
+            ));
         }
         files_table
     };
     HttpResponse::Ok()
-        .body(
-            format!(r#"
+        .body(format!(
+            r#"
                 <!DOCTYPE html>
                 <html>
                 <head>
@@ -156,10 +166,7 @@ pub fn do_browse_directory(req: &HttpRequest, given_path: &path::Path, actual_pa
                 </body>
                 </html>
                 "#,
-                PAGE_TITLE,
-                files_table,
-                current_path,
-            )
-        )
+            PAGE_TITLE, files_table, current_path,
+        ))
         .respond_to(&req)
 }
