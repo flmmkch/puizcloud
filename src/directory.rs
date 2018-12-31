@@ -2,6 +2,28 @@ use actix_web::{Responder, HttpResponse};
 use std::path;
 use super::{HttpRequest, PAGE_TITLE, WebResult};
 
+fn sanitize_html_string<'a>(string: &'a str) -> std::borrow::Cow<'a, str> {
+    [
+            ('&', "&amp;"),
+            ('"', "&quot;"),
+            ('\'', "&#x27;"),
+            ('<', "&lt;"),
+            ('>', "&gt;"),
+    ]
+        .iter()
+        .fold(std::borrow::Cow::Borrowed(string),
+            |s, &(character, entity)| {
+                if s.contains(character) {
+                    s.replace(character, entity)
+                        .into()
+                }
+                else {
+                    s
+                }
+            }
+        )
+}
+
 struct EntrySubfolder {
     given_path: path::PathBuf,
 }
@@ -64,7 +86,7 @@ pub fn do_browse_directory(req: &HttpRequest, given_path: &path::Path, actual_pa
         .rev()
         .fold((String::new(), " "), |(r, mut sep), (file_name, url_link)| {
             let new = format!(r#"<a href="{1}">{0}</a>{2}"#,
-                file_name,
+                sanitize_html_string(&file_name),
                 url_link,
                 sep,
                 );
@@ -95,10 +117,11 @@ pub fn do_browse_directory(req: &HttpRequest, given_path: &path::Path, actual_pa
         // subfolders
         for subfolder in subfolders {
             let path: &path::Path = &subfolder.given_path;
+            let file_name_opt = path.file_name().map(|n| n.to_string_lossy());
             files_table.push_str(
                 &format!(r#"<tr><td><a href="{1}">{0}</a></td><td>--</td></tr>
                 "#,
-                    path.file_name().map(|n| n.to_string_lossy()).unwrap_or("".into()),
+                    file_name_opt.as_ref().map(|s| sanitize_html_string(&s)).unwrap_or("".into()),
                     req.url_for("browse", &[path.to_string_lossy()])?,
                     )
             );
@@ -106,10 +129,11 @@ pub fn do_browse_directory(req: &HttpRequest, given_path: &path::Path, actual_pa
         // files
         for file in files {
             let path: &path::Path = &file.file_path;
+            let file_name_opt = path.file_name().map(|n| n.to_string_lossy());
             files_table.push_str(
                 &format!(r#"<tr><td><a href="{1}">{0}</a></td><td>{2}</td></tr>
                 "#,
-                    path.file_name().map(|n| n.to_string_lossy()).unwrap_or("".into()),
+                    file_name_opt.as_ref().map(|s| sanitize_html_string(&s)).unwrap_or("".into()),
                     req.url_for("browse", &[path.to_string_lossy()])?,
                     file.file_size,
                     )
